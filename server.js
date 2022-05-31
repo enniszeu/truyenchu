@@ -1,117 +1,95 @@
-const express = require('express')
-const app = express()
-const port = 3000
+// server.js
+// where your node app starts
+
+// we've started you off with Express (https://expressjs.com/)
+// but feel free to use whatever libraries or frameworks you'd like through `package.json`.
+
+
+
+const express = require("express");
+const app = express();
+const port = process.env.PORT || 3000;
 const request = require("request");
 const cheerio = require("cheerio");
 const async = require("async");
 var rp = require('request-promise');
+const db = require('./db');
+var cors = require("cors");
+const bodyParser = require('body-parser');
 
-app.get('/', (req, next)=>{
-    num_page = 50;
-    var concurrency = 30;
-    var url = 'https://123truyen.com/danh-sach/truyen-moi?page=';
-  function getLinkOnPage(page, cb) {
-    	let listST = []
-        // không dùng request dc k ? dùng axios?c lieen quan j axio ddaau ủa
-        // thằng này m truytruurl vào rõ ràng đang call api mà
-        rp(url + page)
+
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+app.post("/", async function(req, res) {
+   // db.get('listSt').remove().write()
+    let page = req.body.page
+    var url = `https://123truyen.com/danh-sach/truyen-moi?page=${page}`;
+        let listST = []
+      await rp(url)
             .then(function (htmlString) {
-
-                 const $ = cheerio.load(htmlString);
-
+                const $ = cheerio.load(htmlString);
                 $('.list-new .row').each((i, el)=>{
                     const nm = $(el).find('a').attr('title')
                     const hf = $(el).find('a').attr('href')
                     const im = $(el).find('a img').attr('src')
                     listST.push({nm,hf,im})
                 })
+            })
+            .catch(function (err) {
+                console.log(err)
+            });
+        await res.json(listST)
+});
+
+
+app.get('/comicv', (req, next)=>{
+    num_page = 50; 
+    var concurrency = 30;
+    async function getLinkOnPage(page, cb) {
+        let listCp = [] 
+       await rp(`https://123truyen.com/vo-dich-kiem-hon?page=${page}#list-chapter`)
+            .then(function (htmlString) {
+                const $ = cheerio.load(htmlString);
+                $('.list-chapter li').each((i, el)=>{
+                    const nm = $(el).find('a').attr('title')
+                    const hf = $(el).find('a').attr('href')
+                    const cp = $(el).find('a span').text()
+                    listCp.push({nm,hf,cp})
+                }) 
                 console.log('done page ' + page);
             })
             .catch(function (err) {
-                // Crawling failed...
+                console.log(err)
             });
-            // ddungs k ta
-            //chay thu birt
+    } 
 
-            // run thu di
-    //    request(url + page, function(err, res, body) { 
-    //         if (!err && res.statusCode == 200) {
-    //             const $ = cheerio.load(body);
+    let loopPage = async () => {
+        for(let i = 1; i <= 50; i++ ){
+            await getLinkOnPage(i)
+    }
 
-    //             $('.list-new .row').each((i, el)=>{
-				// 	const nm = $(el).find('a').attr('title')
-				// 	const hf = $(el).find('a').attr('href')
-				// 	const im = $(el).find('a img').attr('src')
-				// 	listST.push({nm,hf,im})
-				// })
-    //         }
-    //         // console.log(listST)
-    //         console.log('done page ' + page);
-    //         cb();
-    //     })
-       // dm de t
-
-        //t co thu sai npm async nhug van run đi
-    } // cục này làm gì
-    //chạy cái getLinkOnPage tu 1-50
-    //kiểu t mún nó chạy 1-2-3-4
-    //chứ k fai 1-3-40-2
-    //ki
-   //getLinkOnPage nay t bo vong lap, má t vẫn chưa hiểu luông chạy :v
-   // thấy dòng số log k
-   // đãng lẽ chạy từ 1 đến 50
-
-     function worker(page, cb) { getLinkOnPage(page, cb)}
+    }
+   loopPage()
+})
 
 
-    // var queue = async.queue(worker, concurrency);
-
-    // queue.drain = function() {console.log('Done All !')};
-
-    for (let i = 1; i <= num_page; i++){
-        worker(i)
-    };
-        // thang nay chay cai j z
-    //chay tu page 1 - page 50
-    //hk thi xoa no lam cai moi xem
-    // cc j z ta :))
-    //haha
+app.get('/chap', (req, next)=>{
+    var url = 'https://123truyen.com/vo-dich-kiem-hon/chuong-1';
+        rp(url)
+            .then(function (htmlString) {
+                const $ = cheerio.load(htmlString);
+                const ab = $('.chapter-content').text()
+                console.log(ab)
+            })
+            .catch(function (err) {
+                console.log(err)
+            });
 
 })
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-
-
-
-
-
-
-
-
-
-
-
-
-//one note
-
-// app.get('/', (req, res) => {
-// 	let listST = []
-//   request('https://123truyen.com/danh-sach/truyen-moi?page=2', (err,
-// 		res, html) =>{
-// 		if(!err && res.statusCode == 200){
-// 			const $ = cheerio.load(html)
-// 			$('.list-new .row').each((i, el)=>{
-// 				const nm = $(el).find('a').attr('title')
-// 				const hf = $(el).find('a').attr('href')
-// 				const im = $(el).find('a img').attr('src')
-// 				const ar =  {nm,hf,im}
-// 				listST.push(ar)
-
-// 			})
-
-// 		}
-// 		console.log(listST)
-// 	})
-// })
